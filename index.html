@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Sapling Planter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+:root{
+  --green:#2ecc71;
+  --dark:#1b5e20;
+  --glass:rgba(255,255,255,0.88);
+}
+
+body{
+  margin:0;
+  font-family:Segoe UI,Arial,sans-serif;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:
+    linear-gradient(rgba(30,90,40,.7),rgba(30,90,40,.85)),
+    url("https://images.unsplash.com/photo-1501004318641-b39e6451bec6");
+  background-size:cover;
+  color:#fff;
+}
+
+.app{
+  width:100%;
+  max-width:420px;
+  padding:14px;
+}
+
+.header{text-align:center;margin-bottom:16px;}
+.header h1{margin:0;font-size:26px;}
+.header p{margin-top:6px;font-size:14px;opacity:.9;}
+
+.card{
+  background:var(--glass);
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:14px;
+  box-shadow:0 10px 28px rgba(0,0,0,.25);
+  color:#1e2d1e;
+}
+
+.card h3{margin:0 0 12px;color:var(--dark);}
+
+.btn{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+  margin-top:8px;
+  color:#fff;
+}
+
+.btn-map{background:linear-gradient(135deg,#2ecc71,#27ae60);}
+.btn-low{background:#3498db;}
+.btn-mid{background:#f1c40f;color:#2c2c2c;}
+.btn-high{background:#e74c3c;}
+
+.status-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.status-box{
+  background:#e8f5e9;
+  border-radius:12px;
+  padding:12px;
+  text-align:center;
+  font-weight:600;
+  color:#1b5e20;
+}
+
+.status-box span{
+  display:block;
+  font-size:20px;
+  margin-top:6px;
+}
+
+.footer{
+  text-align:center;
+  margin-top:10px;
+  font-size:12px;
+  opacity:.8;
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <div class="header">
+    <h1>🌱 Smart Sapling Planter</h1>
+    <p>Autonomous Precision Agriculture</p>
+  </div>
+
+  <div class="card">
+    <h3>📍 Live Location</h3>
+    <button class="btn btn-map" onclick="openMap()">Open Live Location</button>
+  </div>
+
+  <div class="card">
+    <h3>⚙ Distance of Sapling</h3>
+    <button class="btn btn-low" onclick="setMode(1)">Tomato</button>
+    <button class="btn btn-mid" onclick="setMode(2)">Brinjal</button>
+    <button class="btn btn-high" onclick="setMode(3)">Chilli</button>
+  </div>
+
+  <div class="card">
+    <h3>📊 System Status</h3>
+    <div class="status-grid">
+      <div class="status-box">🔋 Battery <span id="battery">--%</span></div>
+      <div class="status-box">🌱 Planted <span id="planted">--</span></div>
+      <div class="status-box">📦 Tray <span id="tray">--</span></div>
+      <div class="status-box">🟢 System <span id="systemStatus">Connecting...</span></div>
+    </div>
+  </div>
+
+  <div class="footer">ESP32 • MQTT Cloud</div>
+</div>
+
+<script>
+
+function openMap(){
+  window.location.href="map.html";
+}
+
+const options = {
+  username: "agribot",
+  password: "Agribot123"
+};
+
+const client = mqtt.connect("wss://93482c172cb3465898cde100a0b26b0d.s1.eu.hivemq.cloud:8884/mqtt", options);
+
+client.on("connect", function () {
+  document.getElementById("systemStatus").innerHTML="Online";
+  client.subscribe("agriBot/status");
+});
+
+client.on("message", function (topic, message) {
+  let data = JSON.parse(message.toString());
+
+  if(topic === "agriBot/status"){
+    document.getElementById("battery").innerHTML = data.battery + "%";
+    document.getElementById("planted").innerHTML = data.planted;
+    document.getElementById("tray").innerHTML = data.tray;
+  }
+});
+
+function setMode(val){
+  client.publish("agriBot/mode", val.toString());
+}
+
+</script>
+</body>
+</html>
