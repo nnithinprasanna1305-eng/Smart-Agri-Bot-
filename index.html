@@ -1,0 +1,316 @@
+<script>
+if(sessionStorage.getItem("loggedIn") !== "true"){
+  window.location.href = "login.html";
+}
+</script>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Sapling Planter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+:root{
+  --green:#2ecc71;
+  --dark:#1b5e20;
+}
+
+body{
+  margin:0;
+  font-family:Segoe UI,Arial,sans-serif;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:
+    linear-gradient(rgba(30,90,40,.7),rgba(30,90,40,.85)),
+    url("https://images.unsplash.com/photo-1501004318641-b39e6451bec6");
+  background-size:cover;
+  color:#fff;
+}
+
+.app{
+  width:100%;
+  max-width:420px;
+  padding:16px;
+}
+
+.header{
+  text-align:center;
+  margin-bottom:24px;
+}
+.header h1{
+  margin:0;
+  font-size:26px;
+  font-weight:700;
+}
+.header p{
+  margin-top:6px;
+  font-size:14px;
+  opacity:.85;
+}
+
+.card{
+  background:rgba(255,255,255,0.92);
+  border-radius:18px;
+  padding:18px;
+  margin-bottom:16px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.2);
+}
+
+.card h3{
+  margin-bottom:14px;
+  color:#1b5e20;
+}
+
+.btn-group{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.btn{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+  color:#fff;
+  transition:0.2s;
+}
+
+.btn:hover{
+  transform:scale(1.02);
+}
+
+.btn-map{background:linear-gradient(135deg,#0a69de,#27a7ae);}
+.btn-low{background:linear-gradient(135deg,#f23005,#ae5427b9);}
+.btn-mid{background:linear-gradient(135deg,#b004fa,#cc3fd1b9);}
+.btn-high{background:linear-gradient(135deg,#3fc905,#06ddbdb9);}
+
+.power-card{
+  text-align:left;
+}
+
+.power-container{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#ecf5ec;
+  padding:14px 18px;
+  border-radius:12px;
+}
+
+#powerLabel{
+  font-weight:bold;
+  font-size:16px;
+  color:#1b5e20;
+}
+
+.switch {
+  position: relative;
+  width: 50px;
+  height: 26px;
+}
+
+.switch input {
+  opacity: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #ccc;
+  border-radius: 34px;
+  transition: 0.3s;
+}
+
+.slider:before {
+  content: "";
+  position: absolute;
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+
+input:checked + .slider {
+  background-color: #2ecc71;
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+}
+
+.logout-btn{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:14px;
+  background:#e74c3c;
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+  margin-top:6px;
+  box-shadow:0 6px 14px rgba(0,0,0,0.2);
+}
+
+/* ===== TOAST ===== */
+#toast{
+  position:fixed;
+  bottom:30px;
+  left:50%;
+  transform:translateX(-50%) translateY(100px);
+  background:#1b5e20;
+  color:#fff;
+  padding:14px 22px;
+  border-radius:10px;
+  font-weight:500;
+  box-shadow:0 6px 18px rgba(0,0,0,0.3);
+  opacity:0;
+  transition:all 0.4s ease;
+  z-index:999;
+}
+
+#toast.show{
+  transform:translateX(-50%) translateY(0);
+  opacity:1;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <h1>🌱 Smart Sapling Planter</h1>
+    <p>Autonomous Precision Agriculture</p>
+  </div>
+
+  <div class="card power-card">
+    <h3>⚡ System Power</h3>
+    <div class="power-container">
+      <span id="powerLabel">OFF</span>
+      <label class="switch">
+        <input type="checkbox" id="powerSwitch" onchange="toggleSystem(this)">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📍 Live Location</h3>
+    <button class="btn btn-map" onclick="openMap()">Open Live Location</button>
+  </div>
+  
+  <div class="card">
+    <h3>⚙ Saplings</h3>
+    <div class="btn-group">
+      <button class="btn btn-low" onclick="setMode(1)">Tomato</button>
+      <button class="btn btn-mid" onclick="setMode(2)">Brinjal</button>
+      <button class="btn btn-high" onclick="setMode(3)">Chilli</button>
+    </div>
+  </div>
+
+  <button class="logout-btn" onclick="logout()">Logout</button>
+
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+
+function openMap(){
+  window.location.href="map.html";
+}
+
+function logout(){
+  sessionStorage.removeItem("loggedIn");
+  window.location.href = "login.html";
+}
+
+/* ===== TOAST FUNCTION ===== */
+function showToast(message){
+  const toast = document.getElementById("toast");
+  toast.innerText = message;
+  toast.classList.add("show");
+
+  setTimeout(()=>{
+    toast.classList.remove("show");
+  }, 2500);
+}
+
+/* MQTT */
+const options = {
+  username: "agribot",
+  password: "Agribot123"
+};
+
+const client = mqtt.connect("wss://93482c172cb3465898cde100a0b26b0d.s1.eu.hivemq.cloud:8884/mqtt", options);
+
+client.on("connect", function () {
+  console.log("Connected to MQTT");
+  client.subscribe("agriBot/status");
+});
+
+client.on("message", function (topic, message) {
+  let data = JSON.parse(message.toString());
+
+  if(topic === "agriBot/status"){
+
+    if(data.power === "ON"){
+      document.getElementById("powerSwitch").checked = true;
+      document.getElementById("powerLabel").innerHTML = "ON";
+    } else {
+      document.getElementById("powerSwitch").checked = false;
+      document.getElementById("powerLabel").innerHTML = "OFF";
+    }
+  }
+});
+
+/* MODE */
+function setMode(val){
+
+  client.publish("agriBot/mode", val.toString());
+
+  let message = "";
+
+  if(val === 1){
+    message = "🍅 Tomato plantation mode activated";
+  }
+  else if(val === 2){
+    message = "🍆 Brinjal plantation mode activated";
+  }
+  else if(val === 3){
+    message = "🌶 Chilli plantation mode activated";
+  }
+
+  showToast(message);
+}
+
+/* POWER CONTROL */
+function toggleSystem(element){
+  if(element.checked){
+    document.getElementById("powerLabel").innerHTML = "ON";
+    client.publish("agriBot/power", "ON");
+  } else {
+    document.getElementById("powerLabel").innerHTML = "OFF";
+    client.publish("agriBot/power", "OFF");
+  }
+}
+
+</script>
+
+</body>
+</html>
