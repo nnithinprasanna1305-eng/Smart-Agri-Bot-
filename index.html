@@ -1,0 +1,293 @@
+<script>
+if(sessionStorage.getItem("loggedIn") !== "true"){
+  window.location.href = "login.html";
+}
+</script>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Smart Sapling Planter</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+:root{
+  --green:#2ecc71;
+  --dark:#1b5e20;
+  --glass:rgba(255,255,255,0.15);
+  --blur:blur(14px);
+}
+
+body{
+  margin:0;
+  font-family:'Segoe UI',sans-serif;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:
+    linear-gradient(rgba(20,60,30,.7),rgba(20,60,30,.85)),
+    url("https://images.unsplash.com/photo-1501004318641-b39e6451bec6");
+  background-size:cover;
+  color:#fff;
+}
+
+/* MAIN */
+.app{
+  width:100%;
+  max-width:420px;
+  padding:18px;
+}
+
+/* HEADER */
+.header{
+  text-align:center;
+  margin-bottom:20px;
+}
+.header h1{
+  margin:0;
+  font-size:28px;
+  font-weight:700;
+}
+.header p{
+  margin-top:5px;
+  font-size:13px;
+  opacity:.85;
+}
+
+.card{
+  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.18);
+  transition: all 0.3s ease;
+}
+
+.card:hover{
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+}
+
+/* STATUS CARD */
+.status-card{
+  background:linear-gradient(135deg,#1b5e20,#2ecc71);
+}
+
+.status-row{
+  display:flex;
+  justify-content:space-between;
+  margin:12px 0;
+  font-size:15px;
+}
+
+.status-value{
+  font-weight:700;
+  letter-spacing:0.5px;
+}
+
+.white-card{
+  background: linear-gradient(180deg,#ffffff,#f8f9fa);
+}
+
+.white-card h3{
+  color:#000;
+}
+
+/* STATUS DOT */
+.dot{
+  display:inline-block;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  margin-right:6px;
+}
+
+/* BUTTONS */
+.btn-group{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.btn{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:14px;
+  font-size:15px;
+  font-weight:600;
+  cursor:pointer;
+  color:#fff;
+  transition:0.25s;
+}
+
+.btn:hover{
+  transform:scale(1.03);
+  box-shadow:0 6px 18px rgba(0,0,0,0.3);
+}
+
+.btn-map{background:linear-gradient(135deg,#0a69de,#27a7ae);}
+.btn-low{background:linear-gradient(135deg,#ff3c00,#ff8c42);}
+.btn-mid{background:linear-gradient(135deg,#b000ff,#d96bff);}
+.btn-high{background:linear-gradient(135deg,#00c853,#69f0ae);}
+
+/* TOAST */
+#toast{
+  position:fixed;
+  bottom:30px;
+  left:50%;
+  transform:translateX(-50%) translateY(100px);
+  background:#1b5e20;
+  color:#fff;
+  padding:14px 22px;
+  border-radius:10px;
+  opacity:0;
+  transition:0.4s;
+}
+
+#toast.show{
+  transform:translateX(-50%) translateY(0);
+  opacity:1;
+}
+
+/* LOGOUT */
+.logout-btn{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:14px;
+  background:#e74c3c;
+  color:white;
+  font-weight:600;
+  cursor:pointer;
+  box-shadow:0 6px 14px rgba(0,0,0,0.2);
+}
+.logout-btn:hover{
+  background:#c0392b;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <h1>🌱 Smart Sapling Planter</h1>
+    <p>Autonomous Precision Agriculture</p>
+  </div>
+
+  <!-- STATUS PANEL -->
+  <div class="card status-card">
+    <h3>🌿 System Status</h3>
+
+    <div class="status-row">
+      <span>⚡ Power</span>
+      <span id="statusPower" class="status-value">OFF</span>
+    </div>
+
+    <div class="status-row">
+      <span>🌱 Crop</span>
+      <span id="statusCrop" class="status-value">None</span>
+    </div>
+  </div>
+
+  <!-- LIVE LOCATION -->
+  <div class="card white-card">
+    <h3>📍 Live Location</h3>
+    <button class="btn btn-map" onclick="openMap()">Open Live Location</button>
+  </div>
+
+  <!-- SAPLINGS -->
+  <div class="card white-card">
+    <h3>⚙ Saplings</h3>
+    <div class="btn-group">
+      <button class="btn btn-low" onclick="setMode(1)">🍅 Tomato</button>
+      <button class="btn btn-mid" onclick="setMode(2)">🍆 Brinjal</button>
+      <button class="btn btn-high" onclick="setMode(3)">🌶 Chilli</button>
+    </div>
+  </div>
+
+  <!-- LOGOUT -->
+  <button class="logout-btn" onclick="logout()">Logout</button>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+
+// NAV
+function openMap(){ window.location.href="map.html"; }
+function logout(){
+  sessionStorage.removeItem("loggedIn");
+  window.location.href="login.html";
+}
+
+// TOAST
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.innerText=msg;
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2500);
+}
+
+// STATUS UPDATE
+function updateStatus(id,value){
+  const el=document.getElementById(id);
+  el.innerText=value;
+
+if(id==="statusPower"){
+  if(value==="ON"){
+    el.style.color="#00ff88";
+    el.style.textShadow="0 0 8px #00ff88";
+  } else {
+    el.style.color="#ff4d4d";
+    el.style.textShadow="0 0 6px #ff4d4d";
+  }
+}
+}
+
+// MQTT
+const client = mqtt.connect("wss://93482c172cb3465898cde100a0b26b0d.s1.eu.hivemq.cloud:8884/mqtt",{
+  username:"agribot",
+  password:"Agribot123"
+});
+
+client.on("connect",()=>{
+  client.subscribe("agriBot/status");
+});
+
+client.on("message",(topic,message)=>{
+  let data = JSON.parse(message.toString());
+
+  if(topic==="agriBot/status"){
+    if(data.power){
+      updateStatus("statusPower", data.power);
+    }
+    if(data.mode){
+      updateStatus("statusCrop", data.mode);
+    }
+  }
+});
+
+// MODE SELECT
+function setMode(val){
+
+  client.publish("agriBot/mode", val.toString());
+
+  let crop = ["🍅 Tomato","🍆 Brinjal","🌶 Chilli"][val-1];
+
+  updateStatus("statusCrop", crop);
+  showToast(crop + " mode activated");
+}
+
+</script>
+
+</body>
+</html>
